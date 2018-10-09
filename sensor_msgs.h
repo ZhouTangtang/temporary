@@ -1,5 +1,8 @@
 #pragma once
+#include <memory>
+#include <opencv2/opencv.hpp>
 
+using namespace std;
 namespace sensor_msgs
 {
 
@@ -45,7 +48,7 @@ namespace sensor_msgs
 		double w;
 	};
 
-	struct ImuConstPtr
+	struct Imu
 	{
 		Header header;
 		Quaternion orientation;
@@ -55,14 +58,16 @@ namespace sensor_msgs
 		double angular_velocity_covariance[9];
 		double linear_acceleration_covariance[9];
 	};
+	typedef std::shared_ptr<sensor_msgs::Imu const> ImuConstPtr;
 
 
 	// Img_msg
-	struct PointCloudConstPtr
+	struct PointCloud
 	{
 		Header header;
 		cv::Point3f points;
-		vector <double> channels;
+		vector<double> channels;
 	};
+	typedef std::shared_ptr<sensor_msgs::PointCloud const> PointCloudConstPtr;
 
 };
