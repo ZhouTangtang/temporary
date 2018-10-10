@@ -15,6 +15,8 @@ using namespace std;
 std::condition_variable con;
 double current_time = -1;
 queue<sensor_msgs::ImuConstPtr> imu_buf;
+sensor_msgs::PointCloudConstPtr cur_img;
+
 queue<sensor_msgs::PointCloudConstPtr> feature_buf;
 queue<sensor_msgs::PointCloudConstPtr> relo_buf;
 int sum_of_wait = 0;
@@ -69,6 +71,7 @@ bool getImufromFile(std::ifstream &ifs)
     }
     return false;
 }
+
 bool getImagefromFile(std::ifstream &ifs)
 {
   string line;
@@ -84,8 +87,7 @@ bool getImagefromFile(std::ifstream &ifs)
     img.header.stamp.nsecs=time%1000000000;
     img.header.frame_id="world";
     img.filename=imagePath+"/"+buffer[1];
-    //
-    feature_buf.push(img);
+    cur_img=img;
     return true;
     
   }
@@ -93,56 +95,62 @@ bool getImagefromFile(std::ifstream &ifs)
 }
 
 
-
-
 std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>>
 getMeasurements()
 {
     std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>> measurements;
-    while (true)
-    {
-        if (imu_buf.empty() || feature_buf.empty())
-            return measurements;
+    if(!getImufromFile(imuFile)) return measurements;
+    if(!getImagefromFile(imageFile)) return measurements;
+    cout<<setprecision(20)<<imu_buf.back().header.stamp.toSec()<<" "<<cur_img.header.stamp.toSec()<<endl;
 
-        if (!(imu_buf.back().header.stamp.toSec() > feature_buf.front().header.stamp.toSec() + estimator.td))
+        while(true)
         {
-            //ROS_WARN("wait for imu, only should happen at the beginning");
+             if (!(imu_buf.back().header.stamp.toSec() > cur_img.header.stamp.toSec() + 0.001))
+            {
             sum_of_wait++;
-            getImufromFile(imuFile);
+            if(!getImufromFile(imuFile)) return measurements;
             continue;
-        }
-        if (!(imu_buf.front().header.stamp.toSec() < feature_buf.front().header.stamp.toSec() + estimator.td))
-        {
-            //ROS_WARN("throw img, only should happen at the beginning");
-            feature_buf.pop();
-            getImagefromFile(imageFile);
+           }
+        if (!(imu_buf.front().header.stamp.toSec() < cur_img.header.stamp.toSec() + 0.001))
+           {
+            if(!getImagefromFile(imageFile)) return measurements;
             continue;
-        }
+            }
 
-
-        sensor_msgs::PointCloudConstPtr img_msg = feature_buf.front();
-        feature_buf.pop();
-
-        std::vector<sensor_msgs::ImuConstPtr> IMUs;
-        while (imu_buf.front().header.stamp.toSec() < img_msg.header.stamp.toSec() + estimator.td)
-        {
+          std::vector<sensor_msgs::ImuConstPtr> IMUs;
+          while (imu_buf.front().header.stamp.toSec() < cur_img.header.stamp.toSec() + 0.001)
+           {
             IMUs.emplace_back(imu_buf.front());
             imu_buf.pop();
+            }
+          IMUs.emplace_back(imu_buf.front());
+          measurements.emplace_back(IMUs, cur_img);
+          return measurements;
         }
-        IMUs.emplace_back(imu_buf.front());
-        if (IMUs.empty())
-            //ROS_WARN("no imu between two image");
-        measurements.emplace_back(IMUs, img_msg);
-    }
-    return measurements;
+
+ 
 }
 
 
 int main()
 {
-  while(getImagefromFile(imageFile))
+  while(true)
   {
-    cout<<setprecision(20)<<feature_buf.back().header.stamp.toSec()<<" "<<feature_buf.back().filename<<endl;
+    std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>> measurements;
+    measurements=getMeasurements();
+    if(measurements.size()==0) break;
+    for(int i=0;i<measurements.size();i++)
+    {
+      cout<<i<<":"<<endl;
+      cout<<"imu"<<endl;
+        for(int j=0;j<measurements[i].first.size();j++)
+        {
+          cout<<setprecision(20)<<measurements[i].first[j].header.stamp.toSec()<<endl;
+        }
+        cout<<"cam"<<endl;
+        cout<<measurements[i].second.header.stamp.toSec()<<endl;
+    }
+    cin.get();
   }
   cin.get();
   return 0;
