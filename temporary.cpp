@@ -16,6 +16,8 @@ std::condition_variable con;
 double current_time = -1;
 queue<sensor_msgs::ImuConstPtr> imu_buf;
 sensor_msgs::PointCloudConstPtr cur_img;
+//图像文件名应该储存在哪里呢？
+
 
 queue<sensor_msgs::PointCloudConstPtr> feature_buf;
 queue<sensor_msgs::PointCloudConstPtr> relo_buf;
@@ -44,7 +46,7 @@ string imagePath="/home/zhouyuxuan/data/MH_03_medium/mav0/cam0/data";
 
 vector<string> split(const string &s, const string &seperator);
 
-//
+//读取一条imu数据记录，将其加入imu_buf
 bool getImufromFile(std::ifstream &ifs)
 {
    // ifstream ifs(filename);
@@ -72,6 +74,8 @@ bool getImufromFile(std::ifstream &ifs)
     return false;
 }
 
+
+//读取一条图像记录，将其赋值给cur_img
 bool getImagefromFile(std::ifstream &ifs)
 {
   string line;
@@ -86,7 +90,9 @@ bool getImagefromFile(std::ifstream &ifs)
     img.header.stamp.secs=(int)(time/1e9);
     img.header.stamp.nsecs=time%1000000000;
     img.header.frame_id="world";
-    img.filename=imagePath+"/"+buffer[1];
+
+    //图像文件名应该储存在哪里呢？
+    string filename=imagePath+"/"+buffer[1];
     cur_img=img;
     return true;
     
@@ -95,14 +101,15 @@ bool getImagefromFile(std::ifstream &ifs)
 }
 
 
+//返回一组测量数据
+//返回的数据的size要么是0（表示文件读完了），要么是1
 std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>>
 getMeasurements()
 {
     std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>> measurements;
     if(!getImufromFile(imuFile)) return measurements;
     if(!getImagefromFile(imageFile)) return measurements;
-    cout<<setprecision(20)<<imu_buf.back().header.stamp.toSec()<<" "<<cur_img.header.stamp.toSec()<<endl;
-
+  
         while(true)
         {
              if (!(imu_buf.back().header.stamp.toSec() > cur_img.header.stamp.toSec() + 0.001))
@@ -132,6 +139,7 @@ getMeasurements()
 }
 
 
+//使用范例
 int main()
 {
   while(true)
@@ -156,7 +164,7 @@ int main()
   return 0;
 }
 
-
+//字符串分割函数
 vector<string> split(const string &s, const string &seperator){
   vector<string> result;
   typedef string::size_type string_size;
